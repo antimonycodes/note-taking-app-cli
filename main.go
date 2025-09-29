@@ -9,8 +9,8 @@ import (
 	"time"
 )
 
-// Store notes with: Title, Content, Tags, CreatedAt, UpdatedAt
 type Note struct {
+	ID        int       `json:"id"`
 	Title     string    `json:"title"`
 	Content   string    `json:"content"`
 	Tags      string    `json:"tags"`
@@ -24,11 +24,10 @@ type Notes struct {
 
 const filename = "notes.json"
 
-// LoadNotes reads notes from JSON file
+// Load notes from file
 func LoadNotes() (*Notes, error) {
 	file, err := os.Open(filename)
 	if err != nil {
-		// If file doesn't exist, return empty list
 		if os.IsNotExist(err) {
 			return &Notes{Notes: []Note{}}, nil
 		}
@@ -37,15 +36,13 @@ func LoadNotes() (*Notes, error) {
 	defer file.Close()
 
 	var notes Notes
-	decoder := json.NewDecoder(file)
-	if err := decoder.Decode(&notes); err != nil {
+	if err := json.NewDecoder(file).Decode(&notes); err != nil {
 		return nil, err
 	}
-
 	return &notes, nil
 }
 
-// SaveNotes writes notes to JSON file
+// Save notes to file
 func (n *Notes) SaveNotes() error {
 	file, err := os.Create(filename)
 	if err != nil {
@@ -53,62 +50,61 @@ func (n *Notes) SaveNotes() error {
 	}
 	defer file.Close()
 
-	encoder := json.NewEncoder(file)
-	encoder.SetIndent("", "  ") // Pretty print JSON
-	return encoder.Encode(n)
+	enc := json.NewEncoder(file)
+	enc.SetIndent("", "  ")
+	return enc.Encode(n)
 }
 
-var notesStore *Notes 
-
-// Create a new note
-func newNote(title, content, tags string) (*Notes, error) {
-	if title == "" {
-		return nil, errors.New("title cannot be empty")
+// Add a new note
+func (n *Notes) Add(title, content, tags string) (*Note, error) {
+	if title == "" || content == "" || tags == "" {
+		return nil, errors.New("title, content, and tags cannot be empty")
 	}
-	if content == "" {
-		return nil, errors.New("content cannot be empty")
-	}
-	if tags == "" {
-		return nil, errors.New("tags cannot be empty")
-	}
-
 	note := Note{
+		ID:        len(n.Notes) + 1, 
 		Title:     title,
 		Content:   content,
 		Tags:      tags,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
-
-	notesStore.Notes = append(notesStore.Notes, note)
-	return notesStore, nil
+	n.Notes = append(n.Notes, note)
+	return &note, nil
 }
-// view  note by index 
 
-func viewNote(id string) (*Notes, error){
-	// fmt.Printf("%s %T\n",id,id)
-	if id == ""{
-		return nil, errors.New("id cannot be empty")
+// List all notes
+func (n *Notes) List() {
+	if len(n.Notes) == 0 {
+		fmt.Println("No notes found.")
+		return
 	}
-
-	parsedId,err := strconv.Atoi(id)
-	if err != nil{
-		return nil,err
-	}
-
-	if parsedId > len(notesStore.Notes)-1{
-		return nil, errors.New("invalid number")
-	}
-	for i,note := range notesStore.Notes{
-		if parsedId == i {
+	for _, note := range n.Notes {
 		fmt.Printf("%d. %s\n   %s\n   Tags: %s\n   Created: %s\n\n",
-				i+1, note.Title, note.Content, note.Tags, note.CreatedAt.Format(time.RFC1123))
+			note.ID, note.Title, note.Content, note.Tags, note.CreatedAt.Format(time.RFC1123))
+	}
+}
+
+// View a note by ID
+func (n *Notes) View(id int) error {
+	for _, note := range n.Notes {
+		if note.ID == id {
+			fmt.Printf("%d. %s\n   %s\n   Tags: %s\n   Created: %s\n\n",
+				note.ID, note.Title, note.Content, note.Tags, note.CreatedAt.Format(time.RFC1123))
+			return nil
 		}
 	}
-	return nil,nil
-
+	return errors.New("note not found")
 }
 
+func (n *Notes) Delete(id int) error {
+	for i, note := range n.Notes {
+		if note.ID == id {
+			n.Notes = append(n.Notes[:i], n.Notes[i+1:]...)
+			return nil
+		}
+	}
+	return errors.New("note not found")
+}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -116,51 +112,52 @@ func main() {
 		return
 	}
 
-	var err error
-	notesStore, err = LoadNotes() 
+	notes, err := LoadNotes()
 	if err != nil {
 		fmt.Println("Error loading notes:", err)
 		return
 	}
 
-	command := os.Args[1]
+	cmd := os.Args[1]
 
-	switch command {
+	switch cmd {
 	case "add":
 		if len(os.Args) < 5 {
 			fmt.Println("Usage: note add <title> <content> <tags>")
 			return
 		}
-		title := os.Args[2]
-		content := os.Args[3]
-		tags := os.Args[4]
-
-		if _, err := newNote(title, content, tags); err != nil {
-			fmt.Println("Error creating note:", err)
+		title, content, tags := os.Args[2], os.Args[3], os.Args[4]
+		if _, err := notes.Add(title, content, tags); err != nil {
+			fmt.Println("Error:", err)
 			return
 		}
-
-		if err := notesStore.SaveNotes(); err != nil {
-			fmt.Println("Error saving:", err)
-		} else {
-			fmt.Println("✨ Note added!")
-		}
+		notes.SaveNotes()
+		fmt.Println("Note added!")
 
 	case "list":
-		if len(notesStore.Notes) == 0 {
-			fmt.Println("No notes found.")
+		notes.List()
+
+	case "view":
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: note view <id>")
 			return
 		}
-		for i, note := range notesStore.Notes {
-			fmt.Printf("%d. %s\n   %s\n   Tags: %s\n   Created: %s\n\n",
-				i+1, note.Title, note.Content, note.Tags, note.CreatedAt.Format(time.RFC1123))
+		id, _ := strconv.Atoi(os.Args[2])
+		if err := notes.View(id); err != nil {
+			fmt.Println("Error:", err)
 		}
-	case "view":
-		title := os.Args[2]
-		fmt.Printf("Found: note %s found.\n\n",title)
 
-		if _,err :=viewNote(title); err != nil{
-			fmt.Println("error:", err)
+	case "delete":
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: note delete <id>")
+			return
+		}
+		id, _ := strconv.Atoi(os.Args[2])
+		if err := notes.Delete(id); err != nil {
+			fmt.Println("Error:", err)
+		} else {
+			notes.SaveNotes()
+			fmt.Println("Note deleted!")
 		}
 
 	default:
@@ -168,15 +165,11 @@ func main() {
 	}
 }
 
-
-// printUsage displays usage instructions for the CLI application.
 func printUsage() {
-	fmt.Println("Usage: note-app <command> [arguments]")
+	fmt.Println("Usage: note <command> [arguments]")
 	fmt.Println("Commands:")
 	fmt.Println("  add <title> <content> <tags>   Add a new note")
 	fmt.Println("  list                           List all notes")
 	fmt.Println("  view <id>                      View a note")
-	fmt.Println("  edit <id>                      Edit a note")
-	fmt.Println("  search <tag>                   Search for notes")
-	fmt.Println("  help                           Show this help message")
+	fmt.Println("  delete <id>                    Delete a note")
 }

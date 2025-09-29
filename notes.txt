@@ -1,0 +1,16 @@
+Explanation of your flow
+
+os.Args[0] → the program name (note-app or main.go when running via go run)
+
+os.Args[1] → the first argument (e.g., "list", "add")
+
+os.Args[2:] → the rest (your arguments for that command)
+
+So when you want to test your add command, you’d run:
+
+go run main.go add "My Title" "This is the content" "go,cli"
+
+
+and for list:
+
+go run main.go list

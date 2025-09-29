@@ -61,7 +61,7 @@ func (n *Notes) Add(title, content, tags string) (*Note, error) {
 		return nil, errors.New("title, content, and tags cannot be empty")
 	}
 	note := Note{
-		ID:        len(n.Notes) + 1, 
+		ID:        len(n.Notes) + 1,
 		Title:     title,
 		Content:   content,
 		Tags:      tags,
@@ -104,6 +104,23 @@ func (n *Notes) Delete(id int) error {
 		}
 	}
 	return errors.New("note not found")
+}
+
+func (n *Notes) Search(tags string) error {
+	if tags == "" {
+		return errors.New("title, content, and tags cannot be empty")
+	}
+
+	for _, note := range n.Notes {
+		if note.Tags == tags {
+			fmt.Printf("%d. %s\n   %s\n   Tags: %s\n   Created: %s\n\n",
+				note.ID, note.Title, note.Content, note.Tags, note.CreatedAt.Format(time.RFC1123))
+			continue
+			// return nil
+		}
+	}
+	return errors.New("note not found")
+
 }
 
 func main() {
@@ -159,6 +176,15 @@ func main() {
 			notes.SaveNotes()
 			fmt.Println("Note deleted!")
 		}
+	case "search":
+		if len(os.Args) < 3 {
+			fmt.Println("Usage: note search <tag>")
+			return
+		}
+		tag:= os.Args[2]
+		if err := notes.Search(tag); err != nil {
+			fmt.Println("Error:", err)
+		}	
 
 	default:
 		printUsage()
@@ -172,4 +198,5 @@ func printUsage() {
 	fmt.Println("  list                           List all notes")
 	fmt.Println("  view <id>                      View a note")
 	fmt.Println("  delete <id>                    Delete a note")
+	fmt.Println("  search <tag>                   Search a note")
 }

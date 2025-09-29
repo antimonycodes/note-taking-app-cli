@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -82,6 +83,32 @@ func newNote(title, content, tags string) (*Notes, error) {
 	notesStore.Notes = append(notesStore.Notes, note)
 	return notesStore, nil
 }
+// view  note by index 
+
+func viewNote(id string) (*Notes, error){
+	// fmt.Printf("%s %T\n",id,id)
+	if id == ""{
+		return nil, errors.New("id cannot be empty")
+	}
+
+	parsedId,err := strconv.Atoi(id)
+	if err != nil{
+		return nil,err
+	}
+
+	if parsedId > len(notesStore.Notes)-1{
+		return nil, errors.New("invalid number")
+	}
+	for i,note := range notesStore.Notes{
+		if parsedId == i {
+		fmt.Printf("%d. %s\n   %s\n   Tags: %s\n   Created: %s\n\n",
+				i+1, note.Title, note.Content, note.Tags, note.CreatedAt.Format(time.RFC1123))
+		}
+	}
+	return nil,nil
+
+}
+
 
 func main() {
 	if len(os.Args) < 2 {
@@ -127,6 +154,13 @@ func main() {
 		for i, note := range notesStore.Notes {
 			fmt.Printf("%d. %s\n   %s\n   Tags: %s\n   Created: %s\n\n",
 				i+1, note.Title, note.Content, note.Tags, note.CreatedAt.Format(time.RFC1123))
+		}
+	case "view":
+		title := os.Args[2]
+		fmt.Printf("Found: note %s found.\n\n",title)
+
+		if _,err :=viewNote(title); err != nil{
+			fmt.Println("error:", err)
 		}
 
 	default:
